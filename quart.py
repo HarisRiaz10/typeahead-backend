@@ -18,10 +18,10 @@ cors(app)
 
 # Initialize DynamoDB
 dynamodb = boto3.resource("dynamodb")
-table = dynamodb.Table("UserSearchHistory")
+table = dynamodb.Table("Repository")
 
 # Glide client setup (async)
-addresses = [NodeAddress("clustercfg.typeahead-cache.5lwcbq.use1.cache.amazonaws.com", 6379)]
+addresses = [NodeAddress("<Redis_endpoint>", 6379)]
 config = GlideClusterClientConfiguration(addresses=addresses, use_tls=True)
 client = None
 
