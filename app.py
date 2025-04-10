@@ -18,7 +18,7 @@ dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table("Repository")
 
 # Glide (Valkey) client setup
-addresses = [NodeAddress("typeaheadcache3.m4vkua.clustercfg.use1.cache.amazonaws.com", 6379)]
+addresses = [NodeAddress("<Redis_Endpoint>", 6379)]
 config = GlideClusterClientConfiguration(addresses=addresses, use_tls=False)
 client = None
 
