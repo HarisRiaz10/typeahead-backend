@@ -78,7 +78,7 @@ async def suggest():
             # Cache new suggestions
             try:
                 for suggestion in db_suggestions:
-                    await client.rpush(prefix, suggestion)
+                    await client.rpush(prefix, [suggestion])  # FIXED: wrap in list
                 await client.ltrim(prefix, 0, 14)
             except Exception as e:
                 print(f"❌ Redis caching error: {e}")
