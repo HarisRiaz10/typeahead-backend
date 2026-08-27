@@ -17,10 +17,11 @@ cors(app)
 dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table("Repository")
 
-# Glide (Valkey) client setup
+# Redis client setup
 addresses = [NodeAddress("<Redis_Endpoint>", 6379)]
 config = GlideClusterClientConfiguration(addresses=addresses, use_tls=False)
 client = None
+
 
 async def connect_to_glide():
     global client
@@ -31,13 +32,16 @@ async def connect_to_glide():
     except Exception as e:
         print(f"❌ Redis connection failed: {e}")
 
+
 @app.before_serving
 async def startup():
     await connect_to_glide()
 
+
 @app.route('/')
 async def root():
     return jsonify({"message": "API is running"}), 200
+
 
 @app.route('/suggest', methods=['GET'])
 async def suggest():
@@ -52,6 +56,7 @@ async def suggest():
     # 1. Try Redis cache (get up to 5 suggestions)
     try:
         cached = await client.lrange(prefix, 0, 4)
+        print(f"🔎 RAW cached from Redis for '{prefix}': {cached}")
         cached_suggestions = [s.decode("utf-8") for s in cached]
         print(f"✅ Cached suggestions: {cached_suggestions}")
         suggestions.extend(cached_suggestions)
@@ -71,22 +76,24 @@ async def suggest():
             db_suggestions = [
                 s for s in db_items if s not in suggestions
             ][:15 - len(suggestions)]
-
             print(f"📦 DynamoDB suggestions: {db_suggestions}")
             suggestions.extend(db_suggestions)
 
             # Cache new suggestions
-            try:
-                for suggestion in db_suggestions:
-                    await client.rpush(prefix, [suggestion])  # FIXED: wrap in list
-                await client.ltrim(prefix, 0, 14)
-            except Exception as e:
-                print(f"❌ Redis caching error: {e}")
+            if db_suggestions:
+                try:
+                    push_result = await client.rpush(prefix, db_suggestions)
+                    trim_result = await client.ltrim(prefix, 0, 14)
+                    print(f"✅ Cached {len(db_suggestions)} suggestions for '{prefix}' "
+                          f"(rpush={push_result}, ltrim={trim_result})")
+                except Exception as e:
+                    print(f"❌ Redis caching error: {e}")
 
         except Exception as e:
             print(f"❌ DynamoDB error: {e}")
 
     return jsonify(suggestions)
+
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=3001)
